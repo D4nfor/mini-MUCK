@@ -199,14 +199,6 @@
     background:radial-gradient(circle at 30% 30%, #cc66ff, #4a1080);
     border-color:#eebbff;
   }
-  /* ВЗЯТЬ — слева от зелья */
-  #btnPickup{
-    width:54px;height:54px;
-    right:76px; bottom:76px;
-    font-size:11px;
-    background:radial-gradient(circle at 30% 30%, #ffcc44, #8a5a00);
-    border-color:#ffeeaa;
-  }
   /* ПРОКАЧКА — самый верх, по центру-справа */
   #btnStats{
     width:50px;height:50px;
@@ -298,7 +290,6 @@
   <div id="actionButtons">
     <div id="btnAtk" class="mob-btn">АТАКА</div>
     <div id="btnJump" class="mob-btn">ПРЫЖОК</div>
-    <div id="btnPickup" class="mob-btn">ВЗЯТЬ</div>
     <div id="btnPotion" class="mob-btn">🧪</div>
     <div id="btnStats" class="mob-btn">P</div>
   </div>
@@ -1646,7 +1637,6 @@ if (isMobile){
   /* Кнопки действий */
   const btnAtk = document.getElementById('btnAtk');
   const btnJump = document.getElementById('btnJump');
-  const btnPickup = document.getElementById('btnPickup');
   const btnPotion = document.getElementById('btnPotion');
   const btnStats = document.getElementById('btnStats');
 
@@ -1657,10 +1647,6 @@ if (isMobile){
   btnJump.addEventListener('touchstart', e => {
     e.preventDefault(); e.stopPropagation();
     if (gameState === 'play') mobile.jumpPressed = true;
-  }, {passive:false});
-  btnPickup.addEventListener('touchstart', e => {
-    e.preventDefault(); e.stopPropagation();
-    if (gameState === 'play') tryPickup();
   }, {passive:false});
   btnPotion.addEventListener('touchstart', e => {
     e.preventDefault(); e.stopPropagation();
