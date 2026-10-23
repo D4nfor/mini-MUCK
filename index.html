@@ -140,13 +140,14 @@
   }
 
   /* ===== КНОПКИ ДЕЙСТВИЙ =====
-     Сетка 3×3 (но используем 2 колонки × 3 строки справа).
-     Каждая кнопка имеет фиксированный размер и отступ, чтобы не перекрываться. */
+     Раскладка: Атака — большой палец справа-снизу.
+     Прыжок — слева от атаки. Зелье — над атакой.
+     Прокачка — в левом верхнем углу блока. */
   #actionButtons{
     position:fixed;
     bottom: max(24px, env(safe-area-inset-bottom, 24px));
     right: max(24px, env(safe-area-inset-right, 24px));
-    width:170px;height:230px;
+    width:180px;height:180px;
     z-index:30;pointer-events:none;
   }
   .mob-btn{
@@ -164,20 +165,9 @@
   }
   .mob-btn:active{transform:scale(0.92);background:rgba(200,50,50,.7);}
 
-  /* Расположение:
-     ┌───────────────┐
-     │               │
-     │        [ATK]  │   <- 80px, правый нижний
-     │   [JUMP]      │
-     │        [POT]  │
-     │   [PICK]      │
-     │        [P]    │   <- 52px, правый верхний
-     └───────────────┘
-     Координаты — от правого верхнего угла контейнера 170×230. */
-
-  /* АТАКА — самая большая, правый нижний угол */
+  /* АТАКА — правый нижний угол, самая большая */
   #btnAtk{
-    width:78px;height:78px;
+    width:80px;height:80px;
     right:0; bottom:0;
     font-size:14px;
     background:radial-gradient(circle at 30% 30%, #ff5555, #8a1010);
@@ -185,30 +175,30 @@
   }
   /* ПРЫЖОК — слева от атаки, чуть выше */
   #btnJump{
-    width:58px;height:58px;
-    right:88px; bottom:10px;
+    width:60px;height:60px;
+    right:90px; bottom:10px;
     font-size:11px;
     background:radial-gradient(circle at 30% 30%, #55aaff, #10408a);
     border-color:#aaddff;
   }
   /* ЗЕЛЬЕ — над атакой */
   #btnPotion{
-    width:54px;height:54px;
-    right:12px; bottom:78px;
+    width:56px;height:56px;
+    right:12px; bottom:92px;
     font-size:18px;
     background:radial-gradient(circle at 30% 30%, #cc66ff, #4a1080);
     border-color:#eebbff;
   }
-  /* ПРОКАЧКА — самый верх, по центру-справа */
+  /* ПРОКАЧКА — левый верхний угол блока */
   #btnStats{
-    width:50px;height:50px;
-    right:20px; bottom:142px;
+    width:52px;height:52px;
+    right:82px; bottom:82px;
     font-size:12px;
     background:radial-gradient(circle at 30% 30%, #66ffcc, #10805a);
     border-color:#bbffdd;
   }
 
-  /* На узких экранах */
+  /* ===== Адаптив ===== */
   @media (max-width: 420px){
     #menu h1{font-size:38px;letter-spacing:4px;}
     #menu .sub{font-size:14px;}
@@ -224,27 +214,24 @@
     #joystickKnob{width:46px;height:46px;margin:-23px 0 0 -23px;}
 
     #actionButtons{
-      width:150px;height:210px;
+      width:160px;height:160px;
       bottom: max(20px, env(safe-area-inset-bottom, 20px));
       right: max(20px, env(safe-area-inset-right, 20px));
     }
-    #btnAtk{width:70px;height:70px;right:0;bottom:0;font-size:13px;}
-    #btnJump{width:52px;height:52px;right:78px;bottom:8px;font-size:10px;}
-    #btnPotion{width:48px;height:48px;right:10px;bottom:78px;font-size:16px;}
-    #btnPickup{width:48px;height:48px;right:68px;bottom:68px;font-size:10px;}
-    #btnStats{width:46px;height:46px;right:16px;bottom:138px;font-size:11px;}
+    #btnAtk{width:72px;height:72px;right:0;bottom:0;font-size:13px;}
+    #btnJump{width:54px;height:54px;right:80px;bottom:8px;font-size:10px;}
+    #btnPotion{width:50px;height:50px;right:10px;bottom:82px;font-size:16px;}
+    #btnStats{width:48px;height:48px;right:74px;bottom:74px;font-size:11px;}
   }
 
-  /* Очень узкие экраны (старые телефоны) */
   @media (max-width: 360px){
     #joystickZone{width:92px;height:92px;}
     #joystickKnob{width:40px;height:40px;margin:-20px 0 0 -20px;}
-    #actionButtons{width:140px;height:200px;}
+    #actionButtons{width:144px;height:144px;}
     #btnAtk{width:64px;height:64px;font-size:12px;}
     #btnJump{width:48px;height:48px;right:70px;font-size:9px;}
     #btnPotion{width:44px;height:44px;right:8px;bottom:72px;}
-    #btnPickup{width:44px;height:44px;right:62px;bottom:62px;}
-    #btnStats{width:42px;height:42px;right:14px;bottom:126px;}
+    #btnStats{width:42px;height:42px;right:66px;bottom:66px;}
   }
 </style>
 </head>
