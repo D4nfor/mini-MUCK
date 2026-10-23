@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>mini-MUCK</title>
+<style>
+  html,body{margin:0;overflow:hidden;background:#000;font-family:Arial;color:#fff;}
+  canvas{display:block;}
+
+  #hud{position:fixed;top:16px;left:16px;z-index:10;text-shadow:2px 2px 3px #000;pointer-events:none;}
+  #hpbar{width:240px;height:20px;background:#300;border:2px solid #fff;border-radius:4px;margin-top:6px;overflow:hidden;}
+  #hpfill{height:100%;width:100%;background:linear-gradient(#e33,#900);transition:width .15s;}
+  #xpbar{width:240px;height:10px;background:#123;border:2px solid #fff;border-radius:4px;margin-top:6px;overflow:hidden;}
+  #xpfill{height:100%;width:0%;background:linear-gradient(#4cf,#08f);transition:width .2s;}
+  #hpnum{font-size:14px;margin-top:4px;}
+  #lvl{font-size:16px;margin-top:4px;color:#ffd84a;}
+  #info{position:fixed;bottom:12px;left:16px;z-index:10;font-size:13px;opacity:.8;text-shadow:1px 1px 2px #000;pointer-events:none;}
+  #cross{position:fixed;top:50%;left:50%;width:6px;height:6px;margin:-3px 0 0 -3px;background:#fff;border-radius:50%;opacity:.7;z-index:10;pointer-events:none;}
+  #gold{position:fixed;top:16px;right:16px;z-index:10;font-size:20px;
+        text-shadow:2px 2px 3px #000;color:#ffd84a;pointer-events:none;}
+  #pickupHint{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:10;
+        background:rgba(0,0,0,.6);padding:6px 14px;border-radius:6px;font-size:14px;
+        opacity:0;transition:opacity .2s;pointer-events:none;}
+  #toast{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:10;
+        font-size:28px;font-weight:bold;color:#ffe;text-shadow:2px 2px 6px #000;
+        opacity:0;transition:opacity .5s;pointer-events:none;text-align:center;white-space:pre-line;}
+
+  #biome{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10;
+         font-size:16px;letter-spacing:2px;color:#fff;text-shadow:2px 2px 4px #000;
+         padding:6px 18px;background:rgba(0,0,0,.35);border-radius:20px;
+         pointer-events:none;transition:opacity .5s;}
+
+  #gear{position:fixed;bottom:12px;right:16px;z-index:10;font-size:14px;
+        text-shadow:1px 1px 2px #000;pointer-events:none;text-align:right;}
+  #gear .row{margin:2px 0;}
+  #gear .val{color:#ffd84a;}
+
+  #bossBar{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:15;
+           width:60%;max-width:720px;display:none;flex-direction:column;align-items:center;
+           text-shadow:2px 2px 4px #000;pointer-events:none;}
+  #bossName{font-size:22px;font-weight:bold;color:#ff88cc;letter-spacing:3px;margin-bottom:6px;}
+  #bossHpWrap{width:100%;height:22px;background:#300;border:2px solid #fff;
+              border-radius:4px;overflow:hidden;box-shadow:0 0 20px #f6a;}
+  #bossHpFill{height:100%;width:100%;background:linear-gradient(#ff88cc,#c2468e);transition:width .12s;}
+
+  #stats{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;
+         align-items:center;justify-content:center;
+         background:rgba(0,10,25,.85);backdrop-filter:blur(4px);}
+  #stats h2{margin:0 0 8px;font-size:36px;color:#4cf;letter-spacing:3px;}
+  #stats .sub{opacity:.7;margin-bottom:24px;}
+  #stats .pts{font-size:20px;color:#ffd84a;margin-bottom:16px;}
+  .statRow{display:flex;align-items:center;gap:12px;font-size:18px;
+           background:rgba(255,255,255,.05);padding:10px 20px;border-radius:8px;
+           margin:6px 0;min-width:420px;justify-content:space-between;}
+  .statRow button{width:34px;height:34px;font-size:20px;border:2px solid #4cf;
+      background:#0a1e33;color:#fff;border-radius:6px;cursor:pointer;}
+  .statRow button:hover:not(:disabled){background:#4cf;color:#012;}
+  .statRow button:disabled{opacity:.3;cursor:not-allowed;}
+  #stats .close{margin-top:20px;font-size:16px;padding:10px 30px;border:2px solid #fff;
+      background:rgba(255,255,255,.1);color:#fff;border-radius:8px;cursor:pointer;}
+  #stats .close:hover{background:#fff;color:#012;}
+
+  #menu{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;
+        background:radial-gradient(circle at 50% 30%, #3a1010 0%, #000 90%);
+        transition:opacity .4s;}
+  #menu h1{font-size:60px;margin:0 0 8px;letter-spacing:6px;
+           text-shadow:0 0 24px #e33,0 4px 8px #000;color:#fff;text-align:center;}
+  #menu .sub{opacity:.7;margin-bottom:36px;font-size:16px;letter-spacing:2px;}
+  #menu button{font-size:20px;padding:14px 40px;margin:8px;border:2px solid #e33;
+        background:rgba(60,10,10,.8);color:#fff;border-radius:8px;cursor:pointer;
+        transition:all .15s;letter-spacing:1px;}
+  #menu button:hover{background:#e33;transform:scale(1.05);}
+  #menu .hint{margin-top:30px;font-size:13px;opacity:.6;max-width:600px;text-align:center;line-height:1.6;}
+
+  #dead{position:fixed;inset:0;z-index:90;display:none;flex-direction:column;
+        align-items:center;justify-content:center;
+        background:rgba(60,0,0,.75);backdrop-filter:blur(4px);}
+  #dead h2{font-size:72px;margin:0;color:#e33;text-shadow:0 0 30px #f00,0 4px 8px #000;
+           letter-spacing:6px;}
+  #dead p{opacity:.85;margin:10px 0 30px;font-size:18px;}
+  #dead button{font-size:20px;padding:14px 40px;border:2px solid #e33;
+        background:rgba(60,10,10,.9);color:#fff;border-radius:8px;cursor:pointer;
+        transition:all .15s;letter-spacing:1px;}
+  #dead button:hover{background:#e33;transform:scale(1.05);}
+
+  #diag{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:200;
+        background:rgba(0,0,0,.7);padding:4px 12px;border-radius:6px;font-size:12px;
+        color:#0f0;display:none;}
+  #diag.err{color:#f66;}
+</style>
+</head>
+<body>
+
+<div id="diag"></div>
+
+<div id="hud">
+  <div id="lvl">Уровень 1</div>
+  <div style="font-size:14px;margin-top:6px;">HP</div>
+  <div id="hpbar"><div id="hpfill"></div></div>
+  <div id="hpnum">100 / 100</div>
+  <div style="font-size:12px;margin-top:6px;opacity:.85;">XP</div>
+  <div id="xpbar"><div id="xpfill"></div></div>
+</div>
+<div id="gold">💰 0</div>
+<div id="biome">🌾 Равнина</div>
+<div id="cross"></div>
+<div id="info">WASD — движение · Мышь — обзор · ЛКМ — атака · Shift — бег · Пробел — прыжок · E — подобрать · H — выпить зелье · P — прокачка</div>
+<div id="pickupHint">Нажмите E чтобы подобрать</div>
+<div id="toast"></div>
+
+<div id="bossBar">
+  <div id="bossName">🐷 РОЗОВАЯ СВИНЬЯ</div>
+  <div id="bossHpWrap"><div id="bossHpFill"></div></div>
+</div>
+
+<div id="gear">
+  <div class="row">Оружие: <span class="val" id="gearName">Ржавый меч</span></div>
+  <div class="row">Урон: <span class="val" id="gearDmg">10</span></div>
+  <div class="row">Скорость: <span class="val" id="gearSpd">1.0</span></div>
+  <div class="row">Уровень: <span class="val" id="gearLvl">1</span></div>
+  <div class="row">🧪 Зелья: <span class="val" id="gearPotions">0</span> <span style="opacity:.6">(H — выпить)</span></div>
+</div>
+
+<div id="stats">
+  <h2>ПРОКАЧКА</h2>
+  <div class="sub">Распределите очки характеристик</div>
+  <div class="pts">Свободных очков: <span id="pts">0</span></div>
+  <div class="statRow">
+    <span>❤️ Здоровье <b id="vVit">0</b></span>
+    <button data-stat="vit" data-dir="-1">−</button>
+    <button data-stat="vit" data-dir="1">+</button>
+  </div>
+  <div class="statRow">
+    <span>⚔️ Сила <b id="vStr">0</b></span>
+    <button data-stat="str" data-dir="-1">−</button>
+    <button data-stat="str" data-dir="1">+</button>
+  </div>
+  <div class="statRow">
+    <span>🛡️ Защита <b id="vDef">0</b></span>
+    <button data-stat="def" data-dir="-1">−</button>
+    <button data-stat="def" data-dir="1">+</button>
+  </div>
+  <div class="statRow">
+    <span>💨 Ловкость <b id="vAgi">0</b></span>
+    <button data-stat="agi" data-dir="-1">−</button>
+    <button data-stat="agi" data-dir="1">+</button>
+  </div>
+  <button class="close" id="closeStats">Закрыть (P)</button>
+</div>
+
+<div id="menu">
+  <h1>mini-MUCK</h1>
+  <div class="sub">3D RPG в бесконечном мире</div>
+  <button id="btnPlay" type="button">Играть</button>
+  <button id="btnQuit" type="button">Выход</button>
+  <div class="hint">
+    WASD — движение · Мышь — обзор · ЛКМ — атака оружием<br>
+    Shift — бег · Пробел — прыжок · E — подобрать лут · H — выпить зелье<br>
+    P — окно прокачки характеристик<br>
+    Мир бесконечный: лес, пустыня, холмы, реки, пустошь, снег и горы.<br>
+    На 5 уровне появится БОСС — Розовая Свинья!
+  </div>
+</div>
+
+<div id="dead">
+  <h2>ВЫ УМЕРЛИ</h2>
+  <p>Вас одолели монстры</p>
+  <button id="btnRespawn" type="button">Возродиться</button>
+</div>
+
+<script type="module">
+/* =====================================================================
+   ДИАГНОСТИКА
+   ===================================================================== */
+const diagEl = document.getElementById('diag');
+function diag(text, isErr){
+  diagEl.style.display = 'block';
+  diagEl.textContent = text;
+  diagEl.className = isErr ? 'err' : '';
+}
+window.addEventListener('error', e => diag('Ошибка: ' + (e.message || e.error), true));
+window.addEventListener('unhandledrejection', e => diag('Promise: ' + e.reason, true));
+
+/* =====================================================================
+   UI-ЭЛЕМЕНТЫ
+   ===================================================================== */
+const hpfill = document.getElementById('hpfill');
+const hpnum  = document.getElementById('hpnum');
+const xpfill = document.getElementById('xpfill');
+const goldEl = document.getElementById('gold');
+const lvlEl  = document.getElementById('lvl');
+const gearName = document.getElementById('gearName');
+const gearDmg  = document.getElementById('gearDmg');
+const gearSpd  = document.getElementById('gearSpd');
+const gearLvl  = document.getElementById('gearLvl');
+const gearPotions = document.getElementById('gearPotions');
+const toastEl  = document.getElementById('toast');
+const statsEl  = document.getElementById('stats');
+const menuEl   = document.getElementById('menu');
+const deadEl   = document.getElementById('dead');
+const pickupHintEl = document.getElementById('pickupHint');
+const bossBarEl  = document.getElementById('bossBar');
+const bossNameEl = document.getElementById('bossName');
+const bossHpFill = document.getElementById('bossHpFill');
+const biomeEl = document.getElementById('biome');
+
+/* =====================================================================
+   ЗАГРУЗКА THREE.JS
+   ===================================================================== */
+diag('Загружаю Three.js...');
+let THREE;
+try {
+  THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
+  diag('Three.js загружен.');
+} catch (e) {
+  diag('Не удалось загрузить Three.js: ' + e.message, true);
+  throw e;
+}
+
+/* =====================================================================
+   ЗВУК
+   ===================================================================== */
+let audioCtx = null;
+function initAudio(){
+  if (!audioCtx){
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone({freq=440, dur=0.15, type='square', vol=0.15, slide=0}={}){
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (slide) osc.frequency.linearRampToValueAtTime(freq + slide, t + dur);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+function playNoise({dur=0.15, vol=0.2, cutoff=1200}={}){
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const len = Math.floor(audioCtx.sampleRate * dur);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i=0;i<len;i++) data[i] = (Math.random()*2 - 1) * (1 - i/len);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = cutoff;
+  const gain = audioCtx.createGain(); gain.gain.value = vol;
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(t);
+}
+const SFX = {
+  swing:  () => playNoise({dur:0.12, vol:0.15, cutoff:2500}),
+  hit:    () => { playTone({freq:180, dur:0.09, type:'square', vol:0.18, slide:-80}); playNoise({dur:0.07, vol:0.15, cutoff:900}); },
+  kill:   () => { playTone({freq:440, dur:0.08, type:'square', vol:0.16, slide:220});
+                  setTimeout(()=>playTone({freq:660, dur:0.12, type:'square', vol:0.14, slide:180}), 70); },
+  pickup: () => { playTone({freq:900, dur:0.06, type:'sine', vol:0.18});
+                  setTimeout(()=>playTone({freq:1300, dur:0.09, type:'sine', vol:0.16}), 50); },
+  levelup:() => [523,659,784,1046].forEach((f,i)=>setTimeout(()=>playTone({freq:f,dur:0.18,type:'triangle',vol:0.22}), i*90)),
+  death:  () => playTone({freq:300, dur:0.7, type:'sawtooth', vol:0.22, slide:-260}),
+  hurt:   () => playTone({freq:200, dur:0.12, type:'square', vol:0.2, slide:-100}),
+  equip:  () => { playTone({freq:600, dur:0.08, type:'square', vol:0.18, slide:200});
+                  setTimeout(()=>playTone({freq:900, dur:0.12, type:'square', vol:0.16}), 80); },
+  boss:   () => { playTone({freq:120, dur:0.7, type:'sawtooth', vol:0.3, slide:-40});
+                  setTimeout(()=>playTone({freq:80, dur:0.9, type:'sawtooth', vol:0.25, slide:20}), 350); },
+  bossHit:() => { playTone({freq:140, dur:0.14, type:'square', vol:0.22, slide:-60}); playNoise({dur:0.1, vol:0.18, cutoff:700}); },
+  oink:   () => { playTone({freq:520, dur:0.1, type:'sawtooth', vol:0.22, slide:-180});
+                  setTimeout(()=>playTone({freq:380, dur:0.13, type:'sawtooth', vol:0.2, slide:-120}), 90); },
+};
+
+/* =====================================================================
+   СЦЕНА
+   ===================================================================== */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 80, 220);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 500);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445522, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(40, 70, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+sun.shadow.camera.top = 60;  sun.shadow.camera.bottom = -60;
+sun.shadow.camera.far = 200;
+scene.add(sun);
+scene.add(sun.target);
+
+/* =====================================================================
+   ШУМ
+   ===================================================================== */
+function hash2(x, y){
+  let h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
+function smoothNoise(x, y){
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf*xf*(3 - 2*xf), v = yf*yf*(3 - 2*yf);
+  const a = hash2(xi, yi);
+  const b = hash2(xi+1, yi);
+  const c = hash2(xi, yi+1);
+  const d = hash2(xi+1, yi+1);
+  return (a*(1-u) + b*u)*(1-v) + (c*(1-u) + d*u)*v;
+}
+function fbm(x, y, oct=4){
+  let val = 0, amp = 0.5, freq = 1;
+  for (let i=0;i<oct;i++){
+    val += smoothNoise(x*freq, y*freq) * amp;
+    amp *= 0.5; freq *= 2;
+  }
+  return val;
+}
+
+/* =====================================================================
+   БИОМЫ
+   ===================================================================== */
+const CHUNK_SIZE = 60;
+const VIEW_RADIUS = 1;
+
+const BIOMES = {
+  plains:    { name:'🌾 Равнина',     groundColor:0x3a8a3a, heightAmp:1.5, heightScale:0.06,
+               tree:0.15, rock:0.25, bush:0.30, grass:1.0, flower:0.35, enemyRate:1.0 },
+  forest:    { name:'🌲 Лес',         groundColor:0x2a6a2a, heightAmp:2.0, heightScale:0.09,
+               tree:0.95, rock:0.15, bush:0.60, grass:1.0, flower:0.20, enemyRate:1.5 },
+  desert:    { name:'🏜 Пустыня',      groundColor:0xf0cf7a, heightAmp:1.8, heightScale:0.05,
+               tree:0.00, rock:0.35, bush:0.05, grass:0.10, flower:0.02, enemyRate:1.3,
+               sand:true },
+  hills:     { name:'⛰ Холмы',        groundColor:0x5a7a3a, heightAmp:5.5, heightScale:0.13,
+               tree:0.35, rock:0.55, bush:0.30, grass:1.0, flower:0.25, enemyRate:1.2 },
+  river:     { name:'💧 Река',         groundColor:0x4a7a3a, heightAmp:0.4, heightScale:0.10,
+               tree:0.35, rock:0.20, bush:0.35, grass:0.9, flower:0.20, enemyRate:0.7 },
+  wasteland: { name:'☠ Пустошь',      groundColor:0x5a4a3a, heightAmp:2.5, heightScale:0.08,
+               tree:0.05, rock:0.65, bush:0.10, grass:0.15, flower:0.02, enemyRate:2.0 },
+  snow:      { name:'❄ Снежная равнина', groundColor:0xf8fcff, heightAmp:2.0, heightScale:0.07,
+               tree:0.30, rock:0.20, bush:0.10, grass:0.20, flower:0.00, enemyRate:1.4,
+               snowy:true },
+  mountain:  { name:'🏔 Горы',         groundColor:0x8a8a92, heightAmp:9.0, heightScale:0.15,
+               tree:0.05, rock:0.90, bush:0.05, grass:0.10, flower:0.00, enemyRate:1.8 },
+};
+
+function biomeAt(x, z){
+  const temp = fbm(x * 0.008 + 100, z * 0.008 + 200, 3);
+  const humid = fbm(x * 0.008 + 300, z * 0.008 + 400, 3);
+  const elev = fbm(x * 0.015, z * 0.015, 3);
+
+  const riverNoise = Math.abs(fbm(x * 0.012 + 500, z * 0.012 + 700, 2) - 0.5);
+  if (riverNoise < 0.035) return 'river';
+
+  if (elev > 0.78) return 'mountain';
+  if (temp < 0.28) return 'snow';
+  if (temp > 0.65 && humid < 0.35) return 'desert';
+  if (humid < 0.3 && elev > 0.6) return 'wasteland';
+  if (humid > 0.6 && temp > 0.35 && temp < 0.7) return 'forest';
+  if (elev > 0.62) return 'hills';
+  return 'plains';
+}
+
+const WATER_LEVEL = -0.8;
+
+/* Эта функция используется ТОЛЬКО для генерации меша */
+function getTerrainHeight(x, z){
+  const b = BIOMES[biomeAt(x, z)];
+  const base = fbm(x * b.heightScale, z * b.heightScale, 4);
+  let h = (base - 0.5) * 2 * b.heightAmp;
+
+  if (b === BIOMES.river){
+    const riverNoise = Math.abs(fbm(x * 0.012 + 500, z * 0.012 + 700, 2) - 0.5);
+    const depth = Math.max(0, 1 - riverNoise / 0.035);
+    h -= depth * 3.5;
+  }
+  return h;
+}
+
+/* =====================================================================
+   МАТЕРИАЛЫ
+   ===================================================================== */
+const matTrunk      = new THREE.MeshStandardMaterial({color:0x6b3f1d});
+const matLeaves     = new THREE.MeshStandardMaterial({color:0x1e6b1e, flatShading:true});
+const matLeavesDark = new THREE.MeshStandardMaterial({color:0x185218, flatShading:true});
+const matRock       = new THREE.MeshStandardMaterial({color:0x888888, flatShading:true});
+const matRockDark   = new THREE.MeshStandardMaterial({color:0x666666, flatShading:true});
+const matBush       = new THREE.MeshStandardMaterial({color:0x2f7a2f, flatShading:true});
+const matBushDark   = new THREE.MeshStandardMaterial({color:0x235c23, flatShading:true});
+const matGrass      = new THREE.MeshStandardMaterial({color:0x5fb03a, side:THREE.DoubleSide});
+const matGrassDry   = new THREE.MeshStandardMaterial({color:0xc9b06a, side:THREE.DoubleSide});
+const matCactus     = new THREE.MeshStandardMaterial({color:0x2f7a3a, flatShading:true});
+const matSnowGrass  = new THREE.MeshStandardMaterial({color:0x9fb8c8, side:THREE.DoubleSide});
+const matSnowTree   = new THREE.MeshStandardMaterial({color:0x3a6a5a, flatShading:true});
+const matSnowCap    = new THREE.MeshStandardMaterial({color:0xffffff, flatShading:true});
+const matMountainRock = new THREE.MeshStandardMaterial({color:0x9a9aa2, flatShading:true});
+const matMountainDark = new THREE.MeshStandardMaterial({color:0x6a6a72, flatShading:true});
+const matWater      = new THREE.MeshStandardMaterial({
+  color:0x3a9fd0,
+  transparent:true,
+  opacity:0.72,
+  roughness:0.15,
+  metalness:0.35,
+  side:THREE.DoubleSide
+});
+const matFlowerColors = [0xff5577,0xffdd44,0xffffff,0xaa66ff,0xff9944]
+  .map(c => new THREE.MeshStandardMaterial({color:c}));
+
+/* =====================================================================
+   ДЕКОРАЦИИ
+   ===================================================================== */
+function makeTree(x, y, z, biome){
+  const g = new THREE.Group();
+  const h = 2.5 + Math.random()*1.5;
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.34,h,6), matTrunk);
+  t.position.y = h/2; t.castShadow = true; g.add(t);
+  const layers = 2 + Math.floor(Math.random()*2);
+  const matA = biome === 'forest' ? matLeavesDark : matLeaves;
+  const matB = biome === 'forest' ? matLeaves : matLeavesDark;
+  for (let i=0;i<layers;i++){
+    const r = 1.6 - i*0.35, ch = 1.8 - i*0.3;
+    const l = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 7), i%2 ? matB : matA);
+    l.position.y = h + i*0.9 + ch/2 - 0.3; l.castShadow = true; g.add(l);
+  }
+  g.position.set(x, y, z);
+  g.rotation.y = Math.random()*Math.PI*2;
+  return g;
+}
+function makeRock(x, y, z){
+  const size = 0.3 + Math.random()*0.9;
+  const geo = Math.random() < 0.5
+    ? new THREE.DodecahedronGeometry(size, 0)
+    : new THREE.BoxGeometry(size, size*0.7, size);
+  const m = new THREE.Mesh(geo, Math.random()<0.5 ? matRock : matRockDark);
+  m.position.set(x, y + size*0.35, z);
+  m.rotation.set(Math.random()*0.4, Math.random()*Math.PI*2, Math.random()*0.4);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function makeBush(x, y, z){
+  const g = new THREE.Group();
+  const parts = 3 + Math.floor(Math.random()*3);
+  for (let i=0;i<parts;i++){
+    const r = 0.35 + Math.random()*0.3;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 6),
+      Math.random()<0.5 ? matBush : matBushDark);
+    b.position.set((Math.random()-0.5)*0.6, r*0.8 + Math.random()*0.15, (Math.random()-0.5)*0.6);
+    b.castShadow = true; g.add(b);
+  }
+  g.position.set(x, y, z);
+  g.rotation.y = Math.random()*Math.PI*2;
+  return g;
+}
+function makeGrass(x, y, z, dry, snowy){
+  const g = new THREE.Group();
+  const blades = 3 + Math.floor(Math.random()*3);
+  const mat = snowy ? matSnowGrass : (dry ? matGrassDry : matGrass);
+  for (let i=0;i<blades;i++){
+    const h = 0.25 + Math.random()*0.25;
+    const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.06, h), mat);
+    blade.position.set((Math.random()-0.5)*0.15, h/2, (Math.random()-0.5)*0.15);
+    blade.rotation.y = Math.random()*Math.PI*2;
+    blade.rotation.z = (Math.random()-0.5)*0.35;
+    g.add(blade);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+function makeFlower(x, y, z){
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.3,4), matGrass);
+  stem.position.y = 0.15; g.add(stem);
+  const mat = matFlowerColors[Math.floor(Math.random()*matFlowerColors.length)];
+  const petals = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), mat);
+  petals.position.y = 0.32; petals.scale.set(1, 0.5, 1); g.add(petals);
+  g.position.set(x, y, z);
+  return g;
+}
+function makeCactus(x, y, z){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1.8, 8), matCactus);
+  body.position.y = 0.9; body.castShadow = true; g.add(body);
+  const arm1 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.9, 6), matCactus);
+  arm1.position.set(0.4, 1.1, 0); arm1.rotation.z = -0.8; arm1.castShadow = true; g.add(arm1);
+  const arm2 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.9, 6), matCactus);
+  arm2.position.set(-0.4, 1.3, 0); arm2.rotation.z = 0.8; arm2.castShadow = true; g.add(arm2);
+  g.position.set(x, y, z);
+  g.rotation.y = Math.random()*Math.PI*2;
+  return g;
+}
+function makeSnowTree(x, y, z){
+  const g = new THREE.Group();
+  const h = 3.5 + Math.random()*2;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.28,h,6), matTrunk);
+  trunk.position.y = h/2; trunk.castShadow = true; g.add(trunk);
+  const layers = 3;
+  for (let i=0;i<layers;i++){
+    const r = 1.5 - i*0.35;
+    const ch = 1.6 - i*0.25;
+    const baseY = h - 0.4 + i*0.9;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 7), matSnowTree);
+    cone.position.y = baseY + ch/2 - 0.3;
+    cone.castShadow = true;
+    g.add(cone);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(r*0.95, ch*0.35, 7), matSnowCap);
+    cap.position.y = baseY + ch*0.55;
+    g.add(cap);
+  }
+  g.position.set(x, y, z);
+  g.rotation.y = Math.random()*Math.PI*2;
+  return g;
+}
+function makeSnowPile(x, y, z){
+  const g = new THREE.Group();
+  const parts = 2 + Math.floor(Math.random()*3);
+  for (let i=0;i<parts;i++){
+    const r = 0.35 + Math.random()*0.35;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 6), matSnowCap);
+    s.scale.set(1.2, 0.6, 1.2);
+    s.position.set((Math.random()-0.5)*0.5, r*0.5, (Math.random()-0.5)*0.5);
+    s.castShadow = true; g.add(s);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+function makeMountainPeak(x, y, z){
+  const g = new THREE.Group();
+  const size = 1.5 + Math.random()*2;
+  const body = new THREE.Mesh(new THREE.ConeGeometry(size*0.7, size*1.6, 5),
+    Math.random() < 0.5 ? matMountainRock : matMountainDark);
+  body.position.y = size*0.8;
+  body.rotation.y = Math.random()*Math.PI*2;
+  body.castShadow = true; body.receiveShadow = true;
+  g.add(body);
+  if (size > 2){
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(size*0.32, size*0.6, 5), matSnowCap);
+    cap.position.y = size*1.5;
+    cap.rotation.y = body.rotation.y;
+    g.add(cap);
+  }
+  if (Math.random() < 0.6){
+    const extra = new THREE.Mesh(new THREE.DodecahedronGeometry(size*0.35, 0), matMountainDark);
+    extra.position.set((Math.random()-0.5)*size, size*0.25, (Math.random()-0.5)*size);
+    extra.rotation.set(Math.random(), Math.random(), Math.random());
+    extra.castShadow = true;
+    g.add(extra);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+
+/* =====================================================================
+   ЧАНКИ
+   ===================================================================== */
+const chunks = new Map();
+function chunkKey(cx, cz){ return cx + ',' + cz; }
+
+function generateChunk(cx, cz){
+  const group = new THREE.Group();
+  const originX = cx * CHUNK_SIZE;
+  const originZ = cz * CHUNK_SIZE;
+
+  const biomeKey = biomeAt(originX + CHUNK_SIZE/2, originZ + CHUNK_SIZE/2);
+  const biome = BIOMES[biomeKey];
+
+  /* --- Земля --- */
+  const SEG = 24;
+  const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, SEG, SEG);
+  const pos = geo.attributes.position;
+
+  let minH = Infinity;
+  for (let i=0;i<pos.count;i++){
+    const lx = pos.getX(i);
+    const ly = pos.getY(i);
+    const worldX = originX + lx + CHUNK_SIZE/2;
+    const worldZ = originZ - ly + CHUNK_SIZE/2;
+    const h = getTerrainHeight(worldX, worldZ);
+    pos.setZ(i, h);
+    if (h < minH) minH = h;
+  }
+  geo.computeVertexNormals();
+
+  const hasWater = (biomeKey === 'river') && (minH < WATER_LEVEL - 0.6);
+
+  const groundMat = biomeKey === 'snow'
+    ? new THREE.MeshStandardMaterial({
+        color: 0xf8fcff,
+        emissive: 0x8899aa,
+        emissiveIntensity: 0.35,
+        flatShading: true,
+        roughness: 1.0
+      })
+    : new THREE.MeshStandardMaterial({
+        color: hasWater ? 0x4a7a3a : biome.groundColor,
+        flatShading: true,
+        roughness: 0.95
+      });
+
+  const ground = new THREE.Mesh(geo, groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.set(originX + CHUNK_SIZE/2, 0, originZ + CHUNK_SIZE/2);
+  ground.receiveShadow = true;
+  ground.name = 'ground';
+  group.add(ground);
+
+  /* --- Вода --- */
+  if (hasWater){
+    const waterGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, 2, 2);
+    const water = new THREE.Mesh(waterGeo, matWater);
+    water.rotation.x = -Math.PI/2;
+    water.position.set(originX + CHUNK_SIZE/2, WATER_LEVEL, originZ + CHUNK_SIZE/2);
+    water.renderOrder = 1;
+    group.add(water);
+  }
+
+  /* --- Декор --- */
+  const isDry   = biomeKey === 'desert' || biomeKey === 'wasteland';
+  const isSnowy = biomeKey === 'snow';
+  const isMountain = biomeKey === 'mountain';
+
+  const treeCount   = Math.floor(biome.tree * (isMountain ? 8 : 14));
+  const rockCount   = Math.floor(biome.rock * (isMountain ? 20 : 12));
+  const bushCount   = Math.floor(biome.bush * 12);
+  const grassCount  = Math.floor(biome.grass * (isMountain ? 30 : 80));
+  const flowerCount = Math.floor(biome.flower * 18);
+  const cactusCount = biomeKey === 'desert' ? 4 : 0;
+  const snowPileCount = isSnowy ? 10 : 0;
+  const peakCount     = isMountain ? 10 : 0;
+
+  function randPos(){
+    return {
+      x: originX + Math.random()*CHUNK_SIZE,
+      z: originZ + Math.random()*CHUNK_SIZE,
+    };
+  }
+
+  for (let i=0;i<treeCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.2) continue;
+    if (isSnowy) group.add(makeSnowTree(p.x, y, p.z));
+    else group.add(makeTree(p.x, y, p.z, biomeKey));
+  }
+  for (let i=0;i<rockCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.1) continue;
+    group.add(makeRock(p.x, y, p.z));
+  }
+  for (let i=0;i<bushCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.1) continue;
+    group.add(makeBush(p.x, y, p.z));
+  }
+  for (let i=0;i<grassCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.05) continue;
+    group.add(makeGrass(p.x, y, p.z, isDry, isSnowy));
+  }
+  for (let i=0;i<flowerCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.1) continue;
+    group.add(makeFlower(p.x, y, p.z));
+  }
+  for (let i=0;i<cactusCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.2) continue;
+    group.add(makeCactus(p.x, y, p.z));
+  }
+  for (let i=0;i<snowPileCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.1) continue;
+    group.add(makeSnowPile(p.x, y, p.z));
+  }
+  for (let i=0;i<peakCount;i++){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y < WATER_LEVEL + 0.3) continue;
+    group.add(makeMountainPeak(p.x, y, p.z));
+  }
+
+  scene.add(group);
+
+  /* --- Спавн врагов --- */
+  const enemyChance = biome.enemyRate * 0.5;
+  if (Math.random() < enemyChance && Math.abs(cx) + Math.abs(cz) > 1){
+    const p = randPos();
+    const y = getTerrainHeight(p.x, p.z);
+    if (y >= WATER_LEVEL){
+      const dist = Math.hypot(p.x, p.z);
+      let tier;
+      const r = Math.random();
+      if (dist < 40) tier = 'grunt';
+      else if (dist < 80) tier = r < 0.7 ? 'grunt' : 'brute';
+      else tier = r < 0.3 ? 'grunt' : (r < 0.75 ? 'brute' : 'demon');
+      spawnEnemy(p.x, p.z, tier);
+    }
+  }
+
+  chunks.set(chunkKey(cx,cz), { group, biome: biomeKey, cx, cz });
+}
+
+function unloadChunk(cx, cz){
+  const key = chunkKey(cx, cz);
+  const c = chunks.get(key);
+  if (!c) return;
+  scene.remove(c.group);
+  c.group.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+  });
+  chunks.delete(key);
+}
+
+function updateChunks(px, pz){
+  const ccx = Math.floor(px / CHUNK_SIZE);
+  const ccz = Math.floor(pz / CHUNK_SIZE);
+
+  for (let dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++){
+    for (let dz = -VIEW_RADIUS; dz <= VIEW_RADIUS; dz++){
+      const cx = ccx + dx, cz = ccz + dz;
+      if (!chunks.has(chunkKey(cx, cz))) generateChunk(cx, cz);
+    }
+  }
+
+  for (const key of Array.from(chunks.keys())){
+    const c = chunks.get(key);
+    const distX = Math.abs(c.cx - ccx);
+    const distZ = Math.abs(c.cz - ccz);
+    if (distX > VIEW_RADIUS + 1 || distZ > VIEW_RADIUS + 1){
+      unloadChunk(c.cx, c.cz);
+    }
+  }
+}
+
+/* =====================================================================
+   ТОЧНАЯ ВЫСОТА ЗЕМЛИ (Raycaster)
+   ===================================================================== */
+const groundRaycaster = new THREE.Raycaster();
+const rayDown = new THREE.Vector3(0, -1, 0);
+const rayOrigin = new THREE.Vector3();
+
+function getGroundHeight(x, z){
+  rayOrigin.set(x, 200, z);
+  groundRaycaster.set(rayOrigin, rayDown);
+
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cz = Math.floor(z / CHUNK_SIZE);
+  const chunk = chunks.get(chunkKey(cx, cz));
+
+  if (!chunk) return getTerrainHeight(x, z);
+
+  let groundMesh = null;
+  for (const child of chunk.group.children){
+    if (child.name === 'ground'){ groundMesh = child; break; }
+  }
+  if (!groundMesh) return getTerrainHeight(x, z);
+
+  const intersects = groundRaycaster.intersectObject(groundMesh, false);
+  if (intersects.length > 0){
+    return intersects[0].point.y;
+  }
+  return getTerrainHeight(x, z);
+}
+
+/* =====================================================================
+   ОРУЖИЕ
+   ===================================================================== */
+const WEAPONS = {
+  rustySword: {
+    name:'Ржавый меч', baseDmg:10, speedMul:1.0, scale:0.75, swingType:'slash',
+    build(){
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({color:0x9c8b6b, metalness:0.7, roughness:0.7});
+      const handleMat = new THREE.MeshStandardMaterial({color:0x3a2418});
+      const guardMat = new THREE.MeshStandardMaterial({color:0x6b5a3a, metalness:0.6, roughness:0.6});
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.32,10), handleMat);
+      h.rotation.x = Math.PI/2; h.position.z = 0.05; g.add(h);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.06), guardMat);
+      guard.position.z = -0.13; g.add(guard);
+      const ricasso = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.035,0.12), mat);
+      ricasso.position.z = -0.22; g.add(ricasso);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.03,1.0), mat);
+      blade.position.z = -0.78; g.add(blade);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.18,4), mat);
+      tip.rotation.x = -Math.PI/2; tip.position.z = -1.37; g.add(tip);
+      return g;
+    }
+  },
+  steelSword: {
+    name:'Стальной меч', baseDmg:18, speedMul:1.1, scale:0.78, swingType:'slash',
+    build(){
+      const g = new THREE.Group();
+      const bladeMat = new THREE.MeshStandardMaterial({color:0xd8dde3, metalness:0.95, roughness:0.25});
+      const guardMat = new THREE.MeshStandardMaterial({color:0xc9a227, metalness:0.8, roughness:0.35});
+      const handleMat= new THREE.MeshStandardMaterial({color:0x3a2418});
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.35,10), handleMat);
+      h.rotation.x = Math.PI/2; h.position.z = 0.05; g.add(h);
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.06,10,10), guardMat);
+      pommel.position.z = 0.24; g.add(pommel);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.05,0.06), guardMat);
+      guard.position.z = -0.14; g.add(guard);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.03,1.05), bladeMat);
+      blade.position.z = -0.68; g.add(blade);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.2,4), bladeMat);
+      tip.rotation.x = -Math.PI/2; tip.rotation.y = Math.PI/4; tip.position.z = -1.3; g.add(tip);
+      const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.02,0.005,0.9),
+        new THREE.MeshStandardMaterial({color:0x8a9099, metalness:0.9, roughness:0.4}));
+      fuller.position.set(0, 0.018, -0.7); g.add(fuller);
+      return g;
+    }
+  },
+  warAxe: {
+    name:'Боевой топор', baseDmg:26, speedMul:0.85, scale:0.78, swingType:'slash',
+    build(){
+      const g = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({color:0x6b3f1d, roughness:0.9});
+      const metalMat = new THREE.MeshStandardMaterial({color:0xb8c0c8, metalness:0.9, roughness:0.3});
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.2,10), woodMat);
+      shaft.rotation.x = Math.PI/2; shaft.position.z = -0.4; g.add(shaft);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,0.14), metalMat);
+      head.position.set(0.18, 0, -0.95); head.rotation.z = -0.15; g.add(head);
+      const edge = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.28,6), metalMat);
+      edge.rotation.z = -Math.PI/2; edge.position.set(0.45, 0, -0.95); g.add(edge);
+      return g;
+    }
+  },
+  battleHammer: {
+    name:'Боевой молот', baseDmg:38, speedMul:0.7, scale:0.82, swingType:'smash',
+    build(){
+      const g = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.9});
+      const metalMat = new THREE.MeshStandardMaterial({color:0x7a7f88, metalness:0.95, roughness:0.35});
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.25,10), woodMat);
+      shaft.rotation.x = Math.PI/2; shaft.position.z = -0.45; g.add(shaft);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.34,0.34), metalMat);
+      head.position.z = -1.05; head.castShadow = true; g.add(head);
+      const spike1 = new THREE.Mesh(new THREE.ConeGeometry(0.08,0.2,4), metalMat);
+      spike1.rotation.x = -Math.PI/2; spike1.position.z = -1.32; g.add(spike1);
+      const spike2 = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.16,4), metalMat);
+      spike2.position.set(-0.24, 0, -1.05); spike2.rotation.z = Math.PI/2; g.add(spike2);
+      const spike3 = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.16,4), metalMat);
+      spike3.position.set(0.24, 0, -1.05); spike3.rotation.z = -Math.PI/2; g.add(spike3);
+      return g;
+    }
+  },
+  demonBlade: {
+    name:'Клинок демона', baseDmg:52, speedMul:1.2, scale:0.8, swingType:'slash',
+    build(){
+      const g = new THREE.Group();
+      const bladeMat = new THREE.MeshStandardMaterial({color:0x881010, metalness:0.9,
+        roughness:0.25, emissive:0x330000, emissiveIntensity:0.6});
+      const guardMat = new THREE.MeshStandardMaterial({color:0x220000, metalness:0.8, roughness:0.4});
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.4,10), guardMat);
+      h.rotation.x = Math.PI/2; h.position.z = 0.05; g.add(h);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.08,0.08), guardMat);
+      guard.position.z = -0.18; g.add(guard);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.04,1.25), bladeMat);
+      blade.position.z = -0.85; g.add(blade);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.085,0.26,4), bladeMat);
+      tip.rotation.x = -Math.PI/2; tip.rotation.y = Math.PI/4; tip.position.z = -1.6; g.add(tip);
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(0.02,0.005,1.15),
+        new THREE.MeshStandardMaterial({color:0xff3322, emissive:0xff2200, emissiveIntensity:1.2}));
+      glow.position.set(0, 0.025, -0.85); g.add(glow);
+      return g;
+    }
+  },
+  porkChopper: {
+    name:'Свинорез', baseDmg:70, speedMul:1.0, scale:0.85, swingType:'slash',
+    build(){
+      const g = new THREE.Group();
+      const bladeMat = new THREE.MeshStandardMaterial({color:0xffaacc, metalness:0.9,
+        roughness:0.2, emissive:0xff2277, emissiveIntensity:0.5});
+      const handleMat = new THREE.MeshStandardMaterial({color:0x4a1a2a});
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.4,10), handleMat);
+      h.rotation.x = Math.PI/2; h.position.z = 0.05; g.add(h);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,0.08),
+        new THREE.MeshStandardMaterial({color:0x883355, metalness:0.8, roughness:0.4}));
+      guard.position.z = -0.18; g.add(guard);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.05,1.4), bladeMat);
+      blade.position.z = -0.9; g.add(blade);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.11,0.3,4), bladeMat);
+      tip.rotation.x = -Math.PI/2; tip.rotation.y = Math.PI/4; tip.position.z = -1.8; g.add(tip);
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.005,1.3),
+        new THREE.MeshStandardMaterial({color:0xff66aa, emissive:0xff2277, emissiveIntensity:1.5}));
+      glow.position.set(0, 0.03, -0.9); g.add(glow);
+      return g;
+    }
+  },
+};
+
+let currentWeaponKey = 'rustySword';
+let currentWeapon = WEAPONS[currentWeaponKey];
+
+const player = {
+  pos: new THREE.Vector3(0, 2, 0),
+  vel: new THREE.Vector3(),
+  yaw: 0, pitch: 0,
+  hp: 100, maxHp: 100,
+  level: 1, xp: 0, xpNext: 30,
+  gold: 0,
+  potions: 0,
+  onGround: true,
+  cooldown: 0,
+  str: 0, vit: 0, def: 0, agi: 0,
+  points: 0,
+};
+player.pos.y = getTerrainHeight(0, 0) + 1.7;
+
+function playerDamage(){ return currentWeapon.baseDmg + player.str*2 + player.level*2; }
+function playerAttackCooldown(){ return 0.45 / (currentWeapon.speedMul * (1 + player.agi*0.02)); }
+function playerSpeed(){ return 6 + player.agi*0.15; }
+
+/* =====================================================================
+   ОРУЖИЕ В РУКЕ
+   ===================================================================== */
+const swordPivot = new THREE.Group();
+swordPivot.position.set(0.30, -0.42, -0.62);
+swordPivot.rotation.set(1.35, -0.20, 0.15);
+const swordHolder = new THREE.Group();
+swordPivot.add(swordHolder);
+camera.add(swordPivot);
+scene.add(camera);
+
+const SWORD_BASE = {
+  pos: new THREE.Vector3(0.30, -0.42, -0.62),
+  rot: new THREE.Euler(1.35, -0.20, 0.15),
+};
+function equipWeapon(key){
+  while (swordHolder.children.length) swordHolder.remove(swordHolder.children[0]);
+  currentWeaponKey = key;
+  currentWeapon = WEAPONS[key];
+  const g = currentWeapon.build();
+  g.scale.setScalar(currentWeapon.scale);
+  swordHolder.add(g);
+  updateGear();
+}
+equipWeapon('rustySword');
+
+/* =====================================================================
+   ВРАГИ
+   ===================================================================== */
+function buildEnemyBody(bodyColor, bellyColor, legColor, scale=1){
+  const g = new THREE.Group();
+  const bodyMat  = new THREE.MeshStandardMaterial({color:bodyColor, roughness:0.75, flatShading:true});
+  const bellyMat = new THREE.MeshStandardMaterial({color:bellyColor, roughness:0.85, flatShading:true});
+  const eyeWhite = new THREE.MeshStandardMaterial({color:0xffffff});
+  const eyeBlack = new THREE.MeshStandardMaterial({color:0x111111});
+  const legMat   = new THREE.MeshStandardMaterial({color:legColor});
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10), bodyMat);
+  body.scale.set(1, 0.85, 1.1); body.position.y = 0.42; body.castShadow = true; g.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), bellyMat);
+  belly.scale.set(1, 0.7, 1); belly.position.set(0, 0.35, 0.08); g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), bodyMat);
+  head.position.set(0, 0.85, 0.15); head.castShadow = true; g.add(head);
+  for (const sx of [-1,1]){
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.075,10,8), eyeWhite);
+    eyeW.position.set(0.11*sx, 0.9, 0.36); g.add(eyeW);
+    const eyeB = new THREE.Mesh(new THREE.SphereGeometry(0.04,8,6), eyeBlack);
+    eyeB.position.set(0.11*sx, 0.9, 0.42); g.add(eyeB);
+  }
+  for (const sx of [-1,1]){
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.07,0.18,6), legMat);
+    ear.position.set(0.14*sx, 1.12, 0.1); ear.rotation.z = sx*0.3; g.add(ear);
+  }
+  for (const [x,y,z] of [[0.25,0.05,0.25],[-0.25,0.05,0.25],[0.25,0.05,-0.25],[-0.25,0.05,-0.25]]){
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.2,6), legMat);
+    leg.position.set(x,y,z); g.add(leg);
+  }
+  g.scale.setScalar(scale);
+  return g;
+}
+const ENEMY_TYPES = {
+  grunt: { build: () => buildEnemyBody(0x8b2b2b, 0xb85050, 0x4a1616, 1.0), hp:20, dmg:5, speed:1.8, xp:12, gold:1 },
+  brute: { build: () => buildEnemyBody(0x5a2a8b, 0x8050b8, 0x2a1048, 1.6), hp:55, dmg:12, speed:1.4, xp:35, gold:3 },
+  demon: { build: () => buildEnemyBody(0x330000, 0x661111, 0x110000, 1.4), hp:90, dmg:18, speed:2.0, xp:60, gold:5 },
+};
+function buildHealthBar(width=1.2, height=0.22){
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 24;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({map: tex, depthTest:false, transparent:true});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(width, height, 1);
+  sprite.userData.canvas = canvas; sprite.userData.tex = tex;
+  sprite.renderOrder = 10;
+  return sprite;
+}
+function updateHealthBar(sprite, hp, maxHp){
+  const canvas = sprite.userData.canvas;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const p = Math.max(0, Math.min(1, hp/maxHp));
+  const r = Math.floor(220*(1-p) + 60*p);
+  const g = Math.floor(40*(1-p) + 200*p);
+  ctx.fillStyle = `rgb(${r},${g},40)`;
+  ctx.fillRect(2,2,(canvas.width-4)*p, canvas.height-4);
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.strokeRect(1,1,canvas.width-2,canvas.height-2);
+  sprite.userData.tex.needsUpdate = true;
+}
+const enemies = [];
+function spawnEnemy(x, z, typeKey='grunt'){
+  const t = ENEMY_TYPES[typeKey];
+  const mesh = t.build();
+  mesh.position.set(x, getTerrainHeight(x, z), z);
+  scene.add(mesh);
+  const hb = buildHealthBar();
+  hb.position.set(0, 1.6, 0); mesh.add(hb);
+  updateHealthBar(hb, t.hp, t.hp);
+  enemies.push({
+    mesh, hpBar: hb, type: typeKey,
+    hp: t.hp, maxHp: t.hp, dmg: t.dmg,
+    speed: t.speed, xp: t.xp, gold: t.gold,
+    attackCd: 0, alive: true, isBoss: false,
+    wanderT: 0,
+    wanderDir: new THREE.Vector3(Math.random()-0.5,0,Math.random()-0.5).normalize(),
+    bobT: Math.random()*Math.PI*2,
+  });
+}
+for (let i=0;i<8;i++){
+  const a = Math.random()*Math.PI*2, r = 15 + Math.random()*20;
+  spawnEnemy(Math.cos(a)*r, Math.sin(a)*r, 'grunt');
+}
+
+/* =====================================================================
+   БОСС
+   ===================================================================== */
+function buildPigBoss(){
+  const g = new THREE.Group();
+  const pinkMat = new THREE.MeshStandardMaterial({color:0xff88bb, roughness:0.7, flatShading:true});
+  const pinkDarkMat = new THREE.MeshStandardMaterial({color:0xd65b94, roughness:0.8, flatShading:true});
+  const snoutMat = new THREE.MeshStandardMaterial({color:0xffaacc, roughness:0.7, flatShading:true});
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({color:0xffffff});
+  const eyeBlackMat = new THREE.MeshStandardMaterial({color:0x111111});
+  const tuskMat = new THREE.MeshStandardMaterial({color:0xfff5cc, roughness:0.4});
+  const hoofMat = new THREE.MeshStandardMaterial({color:0x4a2030, roughness:0.8});
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), pinkMat);
+  body.scale.set(1.3, 1.0, 1.5); body.position.y = 1.6; body.castShadow = true; g.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), pinkDarkMat);
+  belly.scale.set(1.1, 0.85, 1.2); belly.position.set(0, 1.4, 0.15); g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 12), pinkMat);
+  head.scale.set(1, 0.9, 1.05); head.position.set(0, 2.6, 1.3); head.castShadow = true; g.add(head);
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.28, 12), snoutMat);
+  snout.rotation.x = Math.PI/2; snout.position.set(0, 2.55, 2.15); g.add(snout);
+  for (const sx of [-0.12, 0.12]){
+    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), eyeBlackMat);
+    nostril.position.set(sx, 2.55, 2.28); g.add(nostril);
+  }
+  for (const sx of [-0.36, 0.36]){
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), eyeWhiteMat);
+    eyeW.position.set(sx, 2.85, 2.05); g.add(eyeW);
+    const eyeB = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), eyeBlackMat);
+    eyeB.position.set(sx, 2.85, 2.15); g.add(eyeB);
+  }
+  for (const sx of [-1, 1]){
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.6, 4), pinkMat);
+    ear.position.set(0.55*sx, 3.25, 1.2); ear.rotation.z = sx * 0.5; ear.rotation.x = -0.3;
+    g.add(ear);
+  }
+  for (const sx of [-0.28, 0.28]){
+    const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 5), tuskMat);
+    tusk.position.set(sx, 2.3, 2.2); tusk.rotation.x = -0.4; tusk.rotation.z = sx * 0.2;
+    g.add(tusk);
+  }
+  const tailBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 6), pinkMat);
+  tailBase.position.set(0, 2.2, -2.0); tailBase.rotation.x = 0.4; g.add(tailBase);
+  const tailCurl = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.05, 6, 10, Math.PI * 1.4), pinkMat);
+  tailCurl.position.set(0, 2.4, -2.15); tailCurl.rotation.y = Math.PI/2; g.add(tailCurl);
+  for (const [x, y, z] of [[0.75,0,0.75],[-0.75,0,0.75],[0.75,0,-0.75],[-0.75,0,-0.75]]){
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.9, 8), pinkMat);
+    leg.position.set(x, 0.45, z); leg.castShadow = true; g.add(leg);
+    const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.2, 8), hoofMat);
+    hoof.position.set(x, 0.1, z); g.add(hoof);
+  }
+  return g;
+}
+
+let bossSpawned = false;
+function spawnBoss(){
+  if (bossSpawned) return;
+  bossSpawned = true;
+  const x = player.pos.x + 20;
+  const z = player.pos.z - 20;
+  const mesh = buildPigBoss();
+  mesh.position.set(x, getTerrainHeight(x, z), z);
+  scene.add(mesh);
+  const hb = buildHealthBar(2.2, 0.35);
+  hb.position.set(0, 4.0, 0); mesh.add(hb);
+  updateHealthBar(hb, 800, 800);
+  enemies.push({
+    mesh, hpBar: hb, type: 'boss',
+    hp: 800, maxHp: 800, dmg: 30,
+    speed: 2.4, xp: 500, gold: 30,
+    attackCd: 0, alive: true, isBoss: true,
+    wanderT: 0, wanderDir: new THREE.Vector3(0,0,0), bobT: 0,
+  });
+  bossBarEl.style.display = 'flex';
+  SFX.boss();
+  showToast('⚠ БОСС: РОЗОВАЯ СВИНЬЯ!');
+}
+
+/* =====================================================================
+   ЛУТ
+   ===================================================================== */
+const coins = [];
+function buildCoin(){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color:0xffd84a, metalness:0.85, roughness:0.3,
+    emissive:0x664400, emissiveIntensity:0.4
+  });
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.05,20), mat);
+  coin.rotation.z = Math.PI/2; coin.castShadow = true;
+  g.add(coin); return g;
+}
+function spawnCoin(x, z){
+  const m = buildCoin();
+  m.position.set(x, getTerrainHeight(x,z) + 0.5, z);
+  scene.add(m);
+  coins.push({mesh:m, t:Math.random()*Math.PI*2});
+}
+
+const potions = [];
+function buildPotion(){
+  const g = new THREE.Group();
+  const glassMat = new THREE.MeshStandardMaterial({
+    color:0xff2244, emissive:0x881122, emissiveIntensity:0.7,
+    metalness:0.2, roughness:0.25, transparent:true, opacity:0.9
+  });
+  const corkMat = new THREE.MeshStandardMaterial({color:0x6b3f1d, roughness:0.9});
+  const glassMatLight = new THREE.MeshStandardMaterial({
+    color:0xff5577, emissive:0xff2244, emissiveIntensity:1.0,
+    transparent:true, opacity:0.7
+  });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), glassMat);
+  body.scale.set(1, 0.85, 1); body.position.y = 0.18; body.castShadow = true; g.add(body);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 10), glassMatLight);
+  neck.position.y = 0.36; g.add(neck);
+  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.07, 10), corkMat);
+  cork.position.y = 0.46; g.add(cork);
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.35, 20),
+    new THREE.MeshStandardMaterial({
+      color:0xff3355, emissive:0xff2244, emissiveIntensity:1.2,
+      transparent:true, opacity:0.55, side:THREE.DoubleSide
+    })
+  );
+  glow.rotation.x = -Math.PI/2; glow.position.y = -0.02; g.add(glow);
+  return g;
+}
+function spawnPotion(x, z){
+  const m = buildPotion();
+  m.position.set(x, getTerrainHeight(x,z) + 0.5, z);
+  scene.add(m);
+  potions.push({mesh:m, t:Math.random()*Math.PI*2});
+}
+
+const droppedWeapons = [];
+function buildWeaponDrop(weaponKey){
+  const w = WEAPONS[weaponKey];
+  const g = new THREE.Group();
+  const mesh = w.build();
+  mesh.scale.setScalar(w.scale * 0.7);
+  g.add(mesh);
+  const glowMat = new THREE.MeshStandardMaterial({
+    color:0xffd84a, emissive:0xffaa22, emissiveIntensity:0.9,
+    transparent:true, opacity:0.6
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.6, 20), glowMat);
+  disc.rotation.x = -Math.PI/2; disc.position.y = -0.35; g.add(disc);
+  return g;
+}
+function spawnWeaponDrop(x, z, weaponKey){
+  const m = buildWeaponDrop(weaponKey);
+  m.position.set(x, getTerrainHeight(x,z) + 0.7, z);
+  scene.add(m);
+  droppedWeapons.push({mesh:m, weaponKey, t:Math.random()*Math.PI*2});
+}
+function updateLoot(dt){
+  const now = performance.now()/1000;
+  for (const c of coins){
+    c.mesh.rotation.y += dt * 2.5;
+    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z) + 0.5
+                      + Math.sin(now*3 + c.t) * 0.12;
+  }
+  for (const w of droppedWeapons){
+    w.mesh.rotation.y += dt * 1.4;
+    w.mesh.position.y = getGroundHeight(w.mesh.position.x, w.mesh.position.z) + 0.7
+                      + Math.sin(now*2 + w.t) * 0.15;
+  }
+  for (const p of potions){
+    p.mesh.rotation.y += dt * 1.8;
+    p.mesh.position.y = getGroundHeight(p.mesh.position.x, p.mesh.position.z) + 0.5
+                      + Math.sin(now*3 + p.t) * 0.14;
+  }
+}
+function tryPickup(){
+  let picked = false;
+  for (let i = coins.length-1; i >= 0; i--){
+    const c = coins[i];
+    const dx = c.mesh.position.x - player.pos.x;
+    const dz = c.mesh.position.z - player.pos.z;
+    if (Math.hypot(dx, dz) < 2.0){
+      player.gold += 1; scene.remove(c.mesh); coins.splice(i, 1); picked = true;
+    }
+  }
+  for (let i = droppedWeapons.length-1; i >= 0; i--){
+    const w = droppedWeapons[i];
+    const dx = w.mesh.position.x - player.pos.x;
+    const dz = w.mesh.position.z - player.pos.z;
+    if (Math.hypot(dx, dz) < 2.2){
+      equipWeapon(w.weaponKey);
+      showToast('Взято: ' + currentWeapon.name);
+      scene.remove(w.mesh); droppedWeapons.splice(i, 1);
+      picked = true; SFX.equip();
+    }
+  }
+  for (let i = potions.length-1; i >= 0; i--){
+    const p = potions[i];
+    const dx = p.mesh.position.x - player.pos.x;
+    const dz = p.mesh.position.z - player.pos.z;
+    if (Math.hypot(dx, dz) < 2.0){
+      player.potions += 1;
+      scene.remove(p.mesh); potions.splice(i, 1);
+      picked = true;
+      showToast('🧪 Зелье +1');
+    }
+  }
+  if (picked){ updateGold(); updateGear(); SFX.pickup(); }
+}
+
+/* =====================================================================
+   УПРАВЛЕНИЕ
+   ===================================================================== */
+const keys = {};
+let gameState = 'menu';
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyE' && gameState === 'play') tryPickup();
+  if (e.code === 'KeyH' && gameState === 'play') drinkPotion();
+  if (e.code === 'KeyP' && (gameState === 'play' || gameState === 'stats')) toggleStats();
+});
+addEventListener('keyup', e => keys[e.code] = false);
+
+let locked = false;
+renderer.domElement.addEventListener('click', () => {
+  if (gameState === 'play' && !locked){
+    try { renderer.domElement.requestPointerLock(); } catch(e){}
+  }
+});
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+});
+document.addEventListener('mousemove', e => {
+  if (!locked || gameState !== 'play') return;
+  player.yaw   -= e.movementX * 0.0025;
+  player.pitch -= e.movementY * 0.0025;
+  player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch));
+});
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button === 0 && locked && gameState === 'play') attack();
+});
+
+document.getElementById('btnPlay').addEventListener('click', startGame);
+document.getElementById('btnQuit').addEventListener('click', () => {
+  window.close();
+  menuEl.querySelector('.hint').textContent = 'Закройте вкладку вручную.';
+});
+document.getElementById('btnRespawn').addEventListener('click', respawn);
+
+function startGame(){
+  initAudio();
+  menuEl.style.opacity = 0;
+  setTimeout(() => { menuEl.style.display = 'none'; }, 400);
+  gameState = 'play';
+  try { renderer.domElement.requestPointerLock(); } catch(e){}
+  diag('Игра запущена');
+  setTimeout(() => { diagEl.style.display = 'none'; }, 1500);
+}
+function toggleStats(){
+  if (gameState === 'play'){
+    gameState = 'stats';
+    statsEl.style.display = 'flex';
+    if (document.pointerLockElement) document.exitPointerLock();
+    updateStatsUI();
+  } else if (gameState === 'stats'){
+    gameState = 'play';
+    statsEl.style.display = 'none';
+    try { renderer.domElement.requestPointerLock(); } catch(e){}
+  }
+}
+document.getElementById('closeStats').addEventListener('click', toggleStats);
+
+document.querySelectorAll('#stats button[data-stat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const stat = btn.dataset.stat;
+    const dir = parseInt(btn.dataset.dir);
+    if (dir > 0){
+      if (player.points <= 0) return;
+      player.points--; player[stat]++;
+      if (stat === 'vit'){ player.maxHp += 10; player.hp += 10; }
+    } else {
+      if (player[stat] <= 0) return;
+      player[stat]--; player.points++;
+      if (stat === 'vit'){ player.maxHp = Math.max(20, player.maxHp - 10); player.hp = Math.min(player.hp, player.maxHp); }
+    }
+    updateStatsUI(); updateHP(); updateGear();
+  });
+});
+function updateStatsUI(){
+  document.getElementById('pts').textContent = player.points;
+  document.getElementById('vVit').textContent = player.vit;
+  document.getElementById('vStr').textContent = player.str;
+  document.getElementById('vDef').textContent = player.def;
+  document.getElementById('vAgi').textContent = player.agi;
+}
+
+/* =====================================================================
+   АТАКА
+   ===================================================================== */
+let swing = 0, swingDur = 0.45;
+function attack(){
+  if (player.cooldown > 0) return;
+  swingDur = playerAttackCooldown();
+  player.cooldown = swingDur;
+  swing = swingDur;
+  SFX.swing();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const origin = camera.getWorldPosition(new THREE.Vector3());
+  const dmg = playerDamage();
+  const coneAngle = currentWeapon.swingType === 'smash' ? 0.15 : 0.35;
+  setTimeout(() => {
+    if (gameState !== 'play') return;
+    for (const e of enemies){
+      if (!e.alive) continue;
+      const to = new THREE.Vector3().subVectors(e.mesh.position, origin);
+      const dist = to.length();
+      const maxDist = e.isBoss ? 5.5 : 3.8;
+      if (dist > maxDist) continue;
+      to.normalize();
+      if (to.dot(dir) > coneAngle) hitEnemy(e, dmg);
+    }
+  }, swingDur * 0.35 * 1000);
+}
+function hitEnemy(e, dmg){
+  e.hp -= dmg;
+  updateHealthBar(e.hpBar, e.hp, e.maxHp);
+  const push = new THREE.Vector3().subVectors(e.mesh.position, player.pos)
+                 .setY(0).normalize().multiplyScalar(e.isBoss ? 0.15 : 0.7);
+  e.mesh.position.add(push);
+  if (e.isBoss){
+    SFX.bossHit();
+    bossHpFill.style.width = (Math.max(0, e.hp) / e.maxHp * 100) + '%';
+  } else {
+    SFX.hit();
+  }
+  if (e.hp <= 0){
+    e.alive = false;
+    const pos = e.mesh.position.clone();
+    scene.remove(e.mesh);
+    SFX.kill();
+    if (e.isBoss){
+      bossBarEl.style.display = 'none';
+      showToast('🐷 БОСС ПОВЕРЖЕН!\n+' + e.xp + ' XP');
+    }
+    for (let i=0;i<e.gold;i++) spawnCoin(pos.x + (Math.random()-0.5)*0.6, pos.z + (Math.random()-0.5)*0.6);
+    gainXP(e.xp);
+    if (e.isBoss){
+      for (let i=0;i<5;i++) spawnPotion(pos.x + (Math.random()-0.5)*2, pos.z + (Math.random()-0.5)*2);
+      spawnWeaponDrop(pos.x, pos.z, 'porkChopper');
+    } else {
+      const potionChance = { grunt:0.15, brute:0.35, demon:0.6 }[e.type] || 0.15;
+      if (Math.random() < potionChance){
+        spawnPotion(pos.x + (Math.random()-0.5)*0.8, pos.z + (Math.random()-0.5)*0.8);
+      }
+      const dropChance = { grunt:0.08, brute:0.28, demon:0.6 }[e.type] || 0.1;
+      if (Math.random() < dropChance){
+        const keys = ['steelSword','warAxe','battleHammer','demonBlade'];
+        const wKey = keys[Math.floor(Math.random()*keys.length)];
+        if (wKey !== currentWeaponKey) spawnWeaponDrop(pos.x, pos.z, wKey);
+      }
+    }
+  }
+}
+
+/* =====================================================================
+   ЗЕЛЬЯ
+   ===================================================================== */
+function drinkPotion(){
+  if (gameState !== 'play') return;
+  if (player.potions <= 0){ showToast('Нет зелий'); return; }
+  if (player.hp >= player.maxHp){ showToast('Здоровье уже полное'); return; }
+  player.potions -= 1;
+  const heal = 40 + player.vit * 2;
+  player.hp = Math.min(player.maxHp, player.hp + heal);
+  updateHP(); updateGear();
+  SFX.levelup();
+  showToast('🧪 +' + heal + ' HP');
+}
+
+/* =====================================================================
+   ОПЫТ
+   ===================================================================== */
+let toastT = 0;
+function showToast(text){
+  toastEl.textContent = text;
+  toastEl.style.opacity = 1;
+  toastT = 1.6;
+}
+function gainXP(n){
+  player.xp += n;
+  const beforeLvl = player.level;
+  while (player.xp >= player.xpNext){
+    player.xp -= player.xpNext;
+    player.level++;
+    player.xpNext = Math.floor(player.xpNext * 1.5);
+    player.maxHp += 10; player.hp = player.maxHp;
+    player.points += 2;
+    SFX.levelup();
+  }
+  if (player.level > beforeLvl){
+    showToast('УРОВЕНЬ ' + player.level + '!\n+2 очка прокачки (P)');
+  }
+  updateXP(); updateHP(); updateGear();
+  if (statsEl.style.display === 'flex') updateStatsUI();
+  if (player.level >= 5 && !bossSpawned) spawnBoss();
+}
+
+function updateHP(){
+  const p = Math.max(0, player.hp / player.maxHp);
+  hpfill.style.width = (p*100) + '%';
+  hpnum.textContent = Math.round(Math.max(0, player.hp)) + ' / ' + player.maxHp;
+}
+function updateXP(){
+  xpfill.style.width = (player.xp / player.xpNext * 100) + '%';
+  lvlEl.textContent = 'Уровень ' + player.level;
+}
+function updateGold(){ goldEl.textContent = '💰 ' + player.gold; }
+function updateGear(){
+  gearName.textContent = currentWeapon.name;
+  gearDmg.textContent  = playerDamage();
+  gearSpd.textContent  = currentWeapon.speedMul.toFixed(2);
+  gearLvl.textContent  = player.level;
+  gearPotions.textContent = player.potions;
+}
+
+/* =====================================================================
+   ИГРОК
+   ===================================================================== */
+let lastBiome = '';
+function updatePlayer(dt){
+  const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const right   = new THREE.Vector3( Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  const baseSpeed = playerSpeed();
+  const speed = (keys['ShiftLeft'] || keys['ShiftRight']) ? baseSpeed*1.7 : baseSpeed;
+  const move = new THREE.Vector3();
+  if (keys['KeyW']) move.add(forward);
+  if (keys['KeyS']) move.sub(forward);
+  if (keys['KeyA']) move.sub(right);
+  if (keys['KeyD']) move.add(right);
+  if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed);
+  player.vel.x = move.x; player.vel.z = move.z;
+  if (keys['Space'] && player.onGround){ player.vel.y = 7; player.onGround = false; }
+  player.vel.y -= 20 * dt;
+  player.pos.addScaledVector(player.vel, dt);
+
+  const h = getGroundHeight(player.pos.x, player.pos.z);
+  const minY = h + 1.7;
+  if (player.pos.y <= minY){ player.pos.y = minY; player.vel.y = 0; player.onGround = true; }
+
+  updateChunks(player.pos.x, player.pos.z);
+
+  const bk = biomeAt(player.pos.x, player.pos.z);
+  if (bk !== lastBiome){
+    lastBiome = bk;
+    biomeEl.textContent = BIOMES[bk].name;
+
+    let fogColor = 0x87ceeb;
+    if (bk === 'snow')        fogColor = 0xdfeaf2;
+    else if (bk === 'desert') fogColor = 0xf0dca0;
+    else if (bk === 'mountain') fogColor = 0xb8c0cc;
+    scene.background = new THREE.Color(fogColor);
+    scene.fog.color = new THREE.Color(fogColor);
+  }
+
+  camera.position.copy(player.pos);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+
+  sun.position.set(player.pos.x + 40, player.pos.y + 70, player.pos.z + 30);
+  sun.target.position.copy(player.pos);
+
+  if (player.cooldown > 0) player.cooldown -= dt;
+  const isSmash = currentWeapon.swingType === 'smash';
+  if (swing > 0){
+    swing -= dt;
+    const t = 1 - (swing / swingDur);
+    if (!isSmash){
+      let yawOff = 0, rollOff = 0, posOffX = 0, posOffZ = 0;
+      if (t < 0.2){
+        const k = t/0.2;
+        yawOff = -0.9*k; posOffX = 0.12*k; posOffZ = 0.08*k; rollOff = 0.35*k;
+      } else if (t < 0.65){
+        const k = (t-0.2)/0.45;
+        yawOff = -0.9 + 1.7*k;
+        posOffX = 0.12 - 0.48*k;
+        posOffZ = 0.08 - 0.30*k;
+        rollOff = 0.35 - 0.7*k;
+      } else {
+        const k = (t-0.65)/0.35;
+        yawOff = 0.8*(1-k); posOffX = -0.36*(1-k); posOffZ = -0.22*(1-k); rollOff = -0.35*(1-k);
+      }
+      swordPivot.rotation.y = SWORD_BASE.rot.y + yawOff;
+      swordPivot.rotation.z = SWORD_BASE.rot.z + rollOff;
+      swordPivot.rotation.x = SWORD_BASE.rot.x + 0.15*Math.sin(t*Math.PI);
+      swordPivot.position.x = SWORD_BASE.pos.x + posOffX;
+      swordPivot.position.z = SWORD_BASE.pos.z + posOffZ;
+    } else {
+      const wind = Math.min(1, t/0.35);
+      const hitK = Math.max(0, (t-0.35)/0.65);
+      const rot = -1.4*wind + 2.8*hitK;
+      swordPivot.rotation.x = SWORD_BASE.rot.x + rot;
+      swordPivot.rotation.y = SWORD_BASE.rot.y;
+      swordPivot.rotation.z = SWORD_BASE.rot.z + 0.1*Math.sin(t*Math.PI);
+      swordPivot.position.x = SWORD_BASE.pos.x;
+      swordPivot.position.z = SWORD_BASE.pos.z - 0.1*Math.sin(t*Math.PI);
+    }
+  } else {
+    swordPivot.rotation.y += (SWORD_BASE.rot.y - swordPivot.rotation.y)*Math.min(1,dt*14);
+    swordPivot.rotation.z += (SWORD_BASE.rot.z - swordPivot.rotation.z)*Math.min(1,dt*14);
+    swordPivot.rotation.x += (SWORD_BASE.rot.x - swordPivot.rotation.x)*Math.min(1,dt*14);
+    swordPivot.position.x += (SWORD_BASE.pos.x - swordPivot.position.x)*Math.min(1,dt*14);
+    swordPivot.position.z += (SWORD_BASE.pos.z - swordPivot.position.z)*Math.min(1,dt*14);
+  }
+}
+
+/* =====================================================================
+   ВРАГИ: AI
+   ===================================================================== */
+function updateEnemies(dt){
+  for (const e of enemies){
+    if (!e.alive) continue;
+    const to = new THREE.Vector3().subVectors(player.pos, e.mesh.position);
+    to.y = 0;
+    const dist = to.length();
+    let moving = false;
+    const aggroRange = e.isBoss ? 30 : 14;
+
+    if (!e.isBoss && dist > 150){
+      e.alive = false;
+      scene.remove(e.mesh);
+      continue;
+    }
+
+    if (dist < aggroRange){
+      to.normalize();
+      e.mesh.position.addScaledVector(to, e.speed * dt);
+      moving = true;
+      const targetYaw = Math.atan2(to.x, to.z);
+      let diff = targetYaw - e.mesh.rotation.y;
+      while (diff >  Math.PI) diff -= Math.PI*2;
+      while (diff < -Math.PI) diff += Math.PI*2;
+      e.mesh.rotation.y += diff * Math.min(1, dt*6);
+
+      e.attackCd -= dt;
+      const attackRange = e.isBoss ? 4.0 : 1.6;
+      if (dist < attackRange && e.attackCd <= 0){
+        e.attackCd = e.isBoss ? 1.6 : 1.0;
+        const dmg = Math.max(1, e.dmg - player.def);
+        player.hp -= dmg;
+        SFX.hurt(); updateHP();
+        if (e.isBoss) SFX.oink();
+        if (player.hp <= 0) onPlayerDeath();
+      }
+    } else {
+      e.wanderT -= dt;
+      if (e.wanderT <= 0){
+        e.wanderT = 2 + Math.random()*3;
+        e.wanderDir.set(Math.random()-0.5,0,Math.random()-0.5).normalize();
+      }
+      e.mesh.position.addScaledVector(e.wanderDir, e.speed*0.35*dt);
+      moving = true;
+      const targetYaw = Math.atan2(e.wanderDir.x, e.wanderDir.z);
+      let diff = targetYaw - e.mesh.rotation.y;
+      while (diff >  Math.PI) diff -= Math.PI*2;
+      while (diff < -Math.PI) diff += Math.PI*2;
+      e.mesh.rotation.y += diff * Math.min(1, dt*3);
+    }
+    e.bobT += dt * (moving ? 8 : 3);
+    const y = getGroundHeight(e.mesh.position.x, e.mesh.position.z);
+    const bob = moving
+      ? Math.sin(e.bobT) * (e.isBoss ? 0.12 : 0.05)
+      : Math.sin(e.bobT) * 0.02;
+    e.mesh.position.y = y + bob;
+
+    if (e.isBoss){
+      bossHpFill.style.width = (Math.max(0, e.hp) / e.maxHp * 100) + '%';
+    }
+  }
+}
+
+function onPlayerDeath(){
+  if (gameState === 'dead') return;
+  gameState = 'dead';
+  SFX.death();
+  if (document.pointerLockElement) document.exitPointerLock();
+  deadEl.style.display = 'flex';
+}
+function respawn(){
+  player.hp = player.maxHp;
+  player.pos.set(0, 2, 0);
+  player.pos.y = getTerrainHeight(0, 0) + 1.7;
+  player.vel.set(0,0,0);
+  updateHP();
+  deadEl.style.display = 'none';
+  gameState = 'play';
+  try { renderer.domElement.requestPointerLock(); } catch(e){}
+}
+function updatePickupHint(){
+  let near = false;
+  for (const c of coins){
+    const dx = c.mesh.position.x - player.pos.x;
+    const dz = c.mesh.position.z - player.pos.z;
+    if (Math.hypot(dx,dz) < 2.0){ near = true; break; }
+  }
+  if (!near){
+    for (const w of droppedWeapons){
+      const dx = w.mesh.position.x - player.pos.x;
+      const dz = w.mesh.position.z - player.pos.z;
+      if (Math.hypot(dx,dz) < 2.2){ near = true; break; }
+    }
+  }
+  if (!near){
+    for (const p of potions){
+      const dx = p.mesh.position.x - player.pos.x;
+      const dz = p.mesh.position.z - player.pos.z;
+      if (Math.hypot(dx,dz) < 2.0){ near = true; break; }
+    }
+  }
+  pickupHintEl.style.opacity = (gameState === 'play' && near) ? 1 : 0;
+}
+
+/* =====================================================================
+   ПЕРВИЧНАЯ ГЕНЕРАЦИЯ И ЦИКЛ
+   ===================================================================== */
+updateChunks(0, 0);
+player.pos.y = getGroundHeight(player.pos.x, player.pos.z) + 1.7;
+
+const clock = new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (gameState === 'play'){
+    updatePlayer(dt);
+    updateEnemies(dt);
+  }
+  updateLoot(dt);
+  updatePickupHint();
+  if (toastT > 0){
+    toastT -= dt;
+    if (toastT <= 0) toastEl.style.opacity = 0;
+  }
+  renderer.render(scene, camera);
+}
+loop();
+updateHP(); updateXP(); updateGold(); updateGear(); updateStatsUI();
+diag('Готово. Нажмите «Играть».');
+setTimeout(() => { diagEl.style.display = 'none'; }, 2500);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
